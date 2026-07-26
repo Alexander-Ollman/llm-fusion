@@ -37,3 +37,5 @@ scripts/bench/data/
 .era/memory/handovers/
 .era/runtime/
 # Era - End
+# browser automation session artifacts
+.playwright-cli/

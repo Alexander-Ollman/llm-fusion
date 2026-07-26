@@ -94,14 +94,21 @@ the skill.
 
 ### Models & reasoning effort
 
-The registry ships with **Claude Fable 5** (Anthropic's most capable) and **GPT-5.6
-(Sol)** alongside the Opus / Sonnet / GPT-5.5 / Gemini panelists. Each model has an
-editable **reasoning effort** (`low · medium · high · xhigh · max`, default `high`) in
-the dashboard's **Setup → Models** pane. Effort maps to each provider's native control —
+The registry ships with **Claude Opus 5** (flagship agentic/coding), **Claude Fable 5**
+(Anthropic's most capable) and **GPT-5.6 (Sol)**, alongside the Opus 4.8 / Sonnet /
+GPT-5.5 / Gemini panelists. Each model has an editable **reasoning effort**
+(`low · medium · high · xhigh · max`, default `high`) in the dashboard's
+**Setup → Models** pane. Effort maps to each provider's native control —
 Anthropic `output_config.effort`, OpenAI `reasoning.effort` (`xhigh`/`max` clamp to
 `high`); providers without an effort knob ignore it. Newer default model ids
-(`claude-fable-5`, `gpt-5.6-sol`) may need a key with access — run `fuse doctor --probe`
-to confirm one answers before relying on it.
+(`claude-opus-5`, `claude-fable-5`, `gpt-5.6-sol`) may need a key with access — run
+`fuse doctor --probe` to confirm one answers before relying on it.
+
+**Upgrading:** models shipped in a new release are merged into your existing
+`~/.era-fusion/config.json` on load — your edits and any custom models are kept, and a
+brand-new model joins the auto-panel. A model you've taken *out* of `autoPanel` stays
+out. (Deleting a built-in model from the registry doesn't stick; clear it from
+`autoPanel` or set `excludeFromAuto` instead.)
 
 ## Surfaces
 
