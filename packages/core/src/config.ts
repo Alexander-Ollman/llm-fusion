@@ -138,8 +138,10 @@ export const DEFAULT_MODELS: ModelSpec[] = [
     model: "gpt-5.6-sol",
     label: "GPT-5.6 (Sol)",
     webSearch: true,
-    // OpenAI's GPT-5.6 "Sol" — frontier tier of the sol/terra/luna family.
-    // Reasoning effort → reasoning.effort.
+    reasoningEffort: "high",
+    // OpenAI's GPT-5.6 "Sol" — frontier tier of the sol/terra/luna family, and
+    // the default judge. Reasoning effort → reasoning.effort (api mode only;
+    // the codex CLI used in subscription mode takes no effort flag).
   },
   {
     id: "gpt-5.5",
@@ -179,7 +181,10 @@ export const DEFAULT_CONFIG: FusionConfig = {
     "gemini-2.5-pro",
     "gemini-3.5-flash",
   ],
-  defaultJudge: "claude-opus-4-8",
+  // Judge = GPT-5.6 Sol at effort "high". If it has no usable credentials the
+  // engine's judge preflight falls back to the first credentialed panelist, so a
+  // single-provider install still runs (see fusion.ts §2b).
+  defaultJudge: "gpt-5.6-sol",
   classifierModel: "claude-haiku-4-5",
   panelSize: 3,
   webSearch: true,

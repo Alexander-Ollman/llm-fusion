@@ -68,9 +68,11 @@ fuse setup
 fuse doctor              # verify environment
 ```
 
-> Works out-of-the-box with **just an Anthropic key** (Opus 4.8 + Sonnet 4.6, judged by
-> Opus 4.8). Add OpenAI / Google keys for true cross-provider fusion. Run
-> `fuse doctor --probe` to confirm a model actually answers before relying on it.
+> Works out-of-the-box with **just an Anthropic key**: the panel runs on the Claude
+> models, and since the default judge (`gpt-5.6-sol`) has no credentials, the engine
+> falls back to the first credentialed panelist as judge. Add OpenAI / Google keys for
+> true cross-provider fusion. Run `fuse doctor --probe` to confirm a model actually
+> answers before relying on it.
 
 ### Configuring providers
 
