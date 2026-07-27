@@ -94,6 +94,17 @@ export const DEFAULT_MODELS: ModelSpec[] = [
     // via reasoningEffort (output_config.effort). Defaults to "high".
   },
   {
+    id: "claude-opus-5",
+    provider: "anthropic",
+    model: "claude-opus-5",
+    label: "Claude Opus 5",
+    webSearch: true,
+    costPer1MIn: 5,
+    costPer1MOut: 25,
+    // Flagship Opus for agentic coding/enterprise work; supersedes Opus 4.8 at
+    // the same price. Adaptive thinking + effort (defaults to "high").
+  },
+  {
     id: "claude-opus-4-8",
     provider: "anthropic",
     model: "claude-opus-4-8",
@@ -127,8 +138,10 @@ export const DEFAULT_MODELS: ModelSpec[] = [
     model: "gpt-5.6-sol",
     label: "GPT-5.6 (Sol)",
     webSearch: true,
-    // OpenAI's GPT-5.6 "Sol" — frontier tier of the sol/terra/luna family.
-    // Reasoning effort → reasoning.effort.
+    reasoningEffort: "high",
+    // OpenAI's GPT-5.6 "Sol" — frontier tier of the sol/terra/luna family, and
+    // the default judge. Reasoning effort → reasoning.effort (api mode only;
+    // the codex CLI used in subscription mode takes no effort flag).
   },
   {
     id: "gpt-5.5",
@@ -160,6 +173,7 @@ export const DEFAULT_CONFIG: FusionConfig = {
   models: DEFAULT_MODELS,
   autoPanel: [
     "claude-fable-5",
+    "claude-opus-5",
     "claude-opus-4-8",
     "claude-sonnet-4-6",
     "gpt-5.6-sol",
@@ -167,7 +181,10 @@ export const DEFAULT_CONFIG: FusionConfig = {
     "gemini-2.5-pro",
     "gemini-3.5-flash",
   ],
-  defaultJudge: "claude-opus-4-8",
+  // Judge = GPT-5.6 Sol at effort "high". If it has no usable credentials the
+  // engine's judge preflight falls back to the first credentialed panelist, so a
+  // single-provider install still runs (see fusion.ts §2b).
+  defaultJudge: "gpt-5.6-sol",
   classifierModel: "claude-haiku-4-5",
   panelSize: 3,
   webSearch: true,
@@ -197,6 +214,43 @@ function ensureHome(): void {
 
 let cached: FusionConfig | null = null;
 
+/**
+ * Fold newly-shipped default models into a saved config.
+ *
+ * A saved `config.json` used to REPLACE the built-in registry wholesale, so a
+ * model added to DEFAULT_MODELS in a new release was invisible to anyone who had
+ * ever run fusion before (their file was materialized on first run and shadowed
+ * the defaults forever). Rules:
+ *  - Models the user already has (by id) are kept verbatim — their edits win,
+ *    as do custom entries (e.g. an openai-compatible endpoint) we don't ship.
+ *  - Default models with an id absent from the saved file are appended.
+ *  - A newly-appended id also joins autoPanel if it's in the default autoPanel,
+ *    so a shipped model actually enters rotation. Only brand-new ids join: an id
+ *    the user removed from autoPanel is never resurrected.
+ *
+ * Caveat: deleting a built-in model from the registry doesn't stick — it returns
+ * on the next load. To retire one, clear it from autoPanel or set
+ * `excludeFromAuto` instead.
+ */
+export function mergeDefaultModels(raw: Partial<FusionConfig>): {
+  models: ModelSpec[];
+  autoPanel: string[];
+} {
+  const savedModels = raw.models ?? DEFAULT_MODELS;
+  const savedIds = new Set(savedModels.map((m) => m.id));
+  const added = DEFAULT_MODELS.filter((m) => !savedIds.has(m.id));
+
+  const savedAuto = raw.autoPanel ?? DEFAULT_CONFIG.autoPanel;
+  const newAuto = added
+    .map((m) => m.id)
+    .filter((id) => DEFAULT_CONFIG.autoPanel.includes(id) && !savedAuto.includes(id));
+
+  return {
+    models: [...savedModels, ...added],
+    autoPanel: [...savedAuto, ...newAuto],
+  };
+}
+
 /** Load config from disk (creating a default file on first run), merged with defaults. */
 export function loadConfig(force = false): FusionConfig {
   if (cached && !force) return cached;
@@ -209,8 +263,8 @@ export function loadConfig(force = false): FusionConfig {
   }
   try {
     const raw = JSON.parse(readFileSync(path, "utf8")) as Partial<FusionConfig>;
-    cached = { ...DEFAULT_CONFIG, ...raw };
-    if (!raw.models) cached.models = DEFAULT_MODELS;
+    const { models, autoPanel } = mergeDefaultModels(raw);
+    cached = { ...DEFAULT_CONFIG, ...raw, models, autoPanel };
     return cached;
   } catch {
     cached = structuredClone(DEFAULT_CONFIG);

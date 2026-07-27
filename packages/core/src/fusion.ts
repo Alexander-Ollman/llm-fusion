@@ -287,6 +287,43 @@ export async function fuse(opts: FuseOptions, deps: FuseDeps = {}): Promise<Fusi
       judgeOut = synth.usage?.outputTokens ?? 0;
     }
 
+    // 5a-guard. Never return an empty answer while the panel holds good content.
+    // A judge can pass credential preflight and still fail at synthesis time —
+    // e.g. a stale CLI refresh token that satisfies `codex login status` but
+    // 401s on use. runJudgeSynthesis surfaces that as an errored result with
+    // empty text, which would otherwise be emitted verbatim as "the answer".
+    // Recover: re-synthesize with the highest-influence credentialed panelist,
+    // then fall back to the strongest panel response itself.
+    let recovered = false;
+    if (!finalAnswer.trim()) {
+      const influence = new Map(analysis.contributions.map((c) => [c.modelId, c.score]));
+      const usable = panel
+        .filter((p) => !p.error && p.text.trim())
+        .sort((a, b) => (influence.get(b.modelId) ?? 0) - (influence.get(a.modelId) ?? 0));
+
+      const altId = usable.map((p) => p.modelId).find((id) => id !== judge.id && readyIds.has(id));
+      const alt = altId ? getModel(config, altId) : undefined;
+      if (alt) {
+        const retry = await runJudgeSynthesis(alt, messages, panel, analysis, {
+          maxTokens: synthMaxTokens,
+          agentic: opts.agentic,
+          signal: opts.signal,
+        });
+        if (retry.text.trim()) {
+          finalAnswer = retry.text;
+          judgeIn += retry.usage?.inputTokens ?? 0;
+          judgeOut += retry.usage?.outputTokens ?? 0;
+          judge = alt; // report/charge the judge that actually produced the answer
+          recovered = true;
+        }
+      }
+      // Last resort: hand back the best panel answer rather than nothing.
+      if (!finalAnswer.trim() && usable.length) {
+        finalAnswer = usable[0].text;
+        recovered = true;
+      }
+    }
+
     // 5b. Verification + one revision.
     let verification: { passed: boolean; revised: boolean } | undefined;
     if (tech.verify) {
@@ -304,8 +341,10 @@ export async function fuse(opts: FuseOptions, deps: FuseDeps = {}): Promise<Fusi
       emit({ type: "verify", passed: v.passed, revised: v.revised });
     }
 
-    // Emit the final answer once if it wasn't streamed live.
-    if (!streamLive) emit({ type: "answer_token", token: finalAnswer });
+    // Emit the final answer once if it wasn't streamed live. A recovered answer
+    // was never streamed (the original synthesis emitted nothing), so it must be
+    // emitted even when streamLive was set.
+    if (!streamLive || recovered) emit({ type: "answer_token", token: finalAnswer });
 
     // 6. Usage + result
     const usage: FusionUsage = {

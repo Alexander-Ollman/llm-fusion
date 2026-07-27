@@ -16,6 +16,7 @@ export {
   DEFAULT_CONFIG,
   DEFAULT_MODELS,
   DEFAULT_CATEGORIES,
+  mergeDefaultModels,
 } from "./config.js";
 export type { FusionConfig } from "./config.js";
 export { fuse, availableAutoPanel } from "./fusion.js";
